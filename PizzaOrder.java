@@ -2,6 +2,9 @@ import javax.swing.*;
 import java.awt.*;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.io.File;
+import java.io.IOException;
+import javax.sound.sampled.*;
 
 public class Main {
 
@@ -12,17 +15,14 @@ public class Main {
 
 class PizzaOrderGUI extends JFrame {
 
-    private final PizzaOrderController controller;
-
     public PizzaOrderGUI() {
-        controller = new PizzaOrderController();
-
-        setLayout(new BorderLayout());
-        add(controller, BorderLayout.CENTER);
+        PizzaOrderController controller = new PizzaOrderController();
+        add(controller);
 
         setTitle("Pizza Order");
         setSize(400, 300);
         setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+        setLocationRelativeTo(null); // Center the frame on the screen
         setVisible(true);
     }
 }
@@ -33,30 +33,38 @@ class PizzaOrderController extends JPanel {
     private final JTextField toppingsField;
     private final JSpinner numPizzasSpinner;
     private final JButton orderButton;
+    private final JButton cancelButton;
     private final JTextArea receiptArea;
 
-    PizzaOrderController() {
+    private final File orderSoundFile = new File("src\\pip.wav"); // Replace with the actual path
+    private final File cancelSoundFile = new File("src\\can.wav"); // Replace with the actual path
+
+    public PizzaOrderController() {
         setLayout(new BorderLayout());
 
         // Create input panel
-        JPanel inputPanel = new JPanel(new GridLayout(4, 2));
+        JPanel inputPanel = new JPanel(new GridBagLayout());
+        GridBagConstraints gbc = new GridBagConstraints();
+        gbc.gridx = 0;
+        gbc.gridy = 0;
+        gbc.anchor = GridBagConstraints.WEST;
+        gbc.insets = new Insets(5, 5, 5, 5);
+
         String[] sizes = {"Small", "Medium", "Large"};
         sizeCombo = new JComboBox<>(sizes);
-        inputPanel.add(new JLabel("Size:"));
-        inputPanel.add(sizeCombo);
+        addRow(inputPanel, "Size:", sizeCombo, gbc);
 
         toppingsField = new JTextField(20);
-        inputPanel.add(new JLabel("Toppings:"));
-        inputPanel.add(toppingsField);
+        addRow(inputPanel, "Toppings:", toppingsField, gbc);
 
-        SpinnerNumberModel spinnerModel = new SpinnerNumberModel(1, 1, 10, 1);
-        numPizzasSpinner = new JSpinner(spinnerModel);
-        inputPanel.add(new JLabel("Number of Pizzas:"));
-        inputPanel.add(numPizzasSpinner);
+        numPizzasSpinner = new JSpinner(new SpinnerNumberModel(1, 1, 10, 1));
+        addRow(inputPanel, "Number of Pizzas:", numPizzasSpinner, gbc);
 
         orderButton = new JButton("Order");
-        inputPanel.add(new JLabel()); // Placeholder for spacing
-        inputPanel.add(orderButton);
+        addRow(inputPanel, "", orderButton, gbc);
+
+        cancelButton = new JButton("Cancel");
+        addRow(inputPanel, "", cancelButton, gbc);
 
         // Create receipt panel
         receiptArea = new JTextArea(10, 20);
@@ -72,6 +80,15 @@ class PizzaOrderController extends JPanel {
 
         // Listeners
         orderButton.addActionListener(new OrderListener());
+        cancelButton.addActionListener(new CancelListener());
+    }
+
+    private void addRow(JPanel panel, String label, JComponent component, GridBagConstraints gbc) {
+        panel.add(new JLabel(label), gbc);
+        gbc.gridx++;
+        panel.add(component, gbc);
+        gbc.gridx = 0;
+        gbc.gridy++;
     }
 
     private class OrderListener implements ActionListener {
@@ -88,9 +105,36 @@ class PizzaOrderController extends JPanel {
                 String receipt = orderService.generateReceipt(size, toppings, numPizzas, price);
 
                 receiptArea.setText(receipt);
+
+                // Play order sound
+                playSound(orderSoundFile);
             } catch (Exception ex) {
                 JOptionPane.showMessageDialog(null, ex.getMessage());
             }
+        }
+    }
+
+    private class CancelListener implements ActionListener {
+        public void actionPerformed(ActionEvent e) {
+            // Clear input fields and receipt area
+            sizeCombo.setSelectedIndex(0);
+            toppingsField.setText("");
+            numPizzasSpinner.setValue(1);
+            receiptArea.setText("");
+
+            // Play cancel sound
+            playSound(cancelSoundFile);
+        }
+    }
+
+    private void playSound(File soundFile) {
+        try {
+            AudioInputStream audioStream = AudioSystem.getAudioInputStream(soundFile);
+            Clip clip = AudioSystem.getClip();
+            clip.open(audioStream);
+            clip.start();
+        } catch (UnsupportedAudioFileException | IOException | LineUnavailableException ex) {
+            ex.printStackTrace();
         }
     }
 }
